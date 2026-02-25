@@ -1,46 +1,72 @@
-# Gate And Controls
+# Gate And Controls (v1.1)
 
 ## 1) Activation Gate Checklist
 
-在启动多 agent 辩论前，逐项判定：
+Enable debate only if all 3 conditions are true:
 
-1. 任务是否存在明确争议点或多种可行路径？
-2. 是否可以定义可检验的胜负标准？
-3. 关键结论是否可被证据反驳或验证？
+1. Arguable alternatives exist.
+2. Testable evaluation criteria exist.
+3. A falsifiable evidence chain exists.
 
-满足 3/3 才开启辩论。否则默认单 agent。
+If gate score < 3/3, do not start multi-agent debate.
+Return fallback schema with `STATUS=GATE_FAILED`.
+
+Fallback template:
+
+```text
+[STATUS]
+GATE_FAILED
+
+[GATE_SCORE]
+x/3
+
+[MISSING_CONDITIONS]
+- ...
+
+[SINGLE_AGENT_ANSWER]
+...
+
+[WHAT_EVIDENCE_IS_NEEDED_TO_ACTIVATE_DEBATE]
+...
+```
 
 ## 2) Budget Controls
 
-1. 默认轮次：2。
-2. 最大轮次：3。
-3. 每角色输出长度上限：按任务设定，避免篇幅偏置。
-4. 总预算超限时：提前终止并输出“当前最佳+风险提示”。
+1. Default debate rounds: 2.
+2. Max debate rounds: 3.
+3. Phase 0 is mandatory but excluded from round count.
+4. Cap per-role response length and total token budget per task.
+5. If budget is exceeded, stop and output current-best answer with explicit risk flags.
 
 ## 3) Stop Rules
 
-1. 连续两轮评分增益 <1%。
-2. 没有新增证据。
-3. 分歧集中于价值取向而非事实，可转人工决策。
+1. Judge produces a 0-100 total score at each round end.
+2. `score_gain = current_total_score - previous_total_score`.
+3. Stop if score_gain < 1 point for two consecutive rounds.
+4. Stop if no new evidence is added.
+5. If disagreement is value-based (not factual), escalate to human decision.
 
 ## 4) Failure Modes And Mitigations
 
-1. 群体偏差放大:
-- Mitigation: 保持 A/B 独立初稿；引入独立 checker；强制反例位。
+1. Shared-bias amplification:
+- Keep A/B isolated in Phase 0.
+- Require independent evidence checks.
+- Force counterexample slots.
 
-2. 角色塌缩:
-- Mitigation: 强化角色差异提示；限制互看时机。
+2. Role collapse:
+- Enforce role-specific outputs.
+- Prevent early cross-read.
 
-3. 一致但错误:
-- Mitigation: Judge 不以一致性为证据，必须看证据映射。
+3. Confident but wrong consensus:
+- Judge must rely on evidence map, not agreement rate.
 
-4. 空转辩论:
-- Mitigation: 强制轮次和停机阈值。
+4. Debate loops:
+- Enforce round caps and stop rules.
 
 ## 5) High-Stakes Escalation
 
-在医疗、法律、金融等高风险场景：
+For medical, legal, financial, safety, or major-loss scenarios:
 
-1. 强制 human-in-the-loop 审核。
-2. 允许输出“证据不足，不发布结论”。
-3. 明确给出下一步验证计划。
+1. Human-in-the-loop review is mandatory before release.
+2. If unresolved or under-supported, output `STATUS=INSUFFICIENT_EVIDENCE`.
+3. Provide a concrete verification plan.

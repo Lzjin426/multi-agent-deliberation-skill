@@ -1,23 +1,24 @@
-# Debate Playbook
+# Debate Playbook (v1.1)
 
 ## 1) Orchestrator Prompt Template
 
 ```text
-你是 Debate-Orchestrator。目标：通过多智能体辩论，输出高质量、可追溯、可执行的最终答案。
+You are Debate-Orchestrator. Goal: produce a high-quality, traceable, and actionable final answer.
 
-输入:
+Inputs:
 - QUESTION: {{question}}
 - CONTEXT: {{context}}
 - CONSTRAINTS: {{constraints}}
 - SOURCE_POOL: {{source_pool}}
 - RISK_LEVEL: {{low|medium|high}}
 
-规则:
-1. 先并行收集两个独立方案（A/B），彼此不可见中间推理。
-2. 进行最多2轮交叉质询；仅在“有新证据或关键分歧未解”时允许第3轮。
-3. Evidence-Checker 必须逐条核验关键主张。
-4. Judge 按固定评分表裁决；不得无依据折中。
-5. 若证据不足，输出“证据不足”并给补证计划。
+Rules:
+1. Collect two independent proposals (A/B) in isolated contexts first.
+2. Run up to 2 debate rounds by default. Allow Round 3 only with new evidence or unresolved core factual conflict.
+3. Evidence-Checker must verify critical claim-source consistency.
+4. Judge must decide using fixed rubric and structured schema.
+5. If evidence is insufficient, output STATUS=INSUFFICIENT_EVIDENCE and a verification plan.
+6. If gate fails, output STATUS=GATE_FAILED and switch to single-agent fallback.
 ```
 
 ## 2) Role Prompt Blocks
@@ -25,9 +26,9 @@
 ### Proposer (A/B)
 
 ```text
-输出:
+Output:
 - CLAIMS (3-7)
-- EVIDENCE_MAP (claim -> source_id)
+- EVIDENCE_MAP (claim_id -> source_id)
 - REASONING_SUMMARY
 - UNCERTAINTIES
 - SELF_CHECK
@@ -36,7 +37,7 @@
 ### Critic
 
 ```text
-输出:
+Output:
 - ATTACK_ON_A
 - ATTACK_ON_B
 - COUNTEREXAMPLES
@@ -47,7 +48,7 @@
 ### Evidence-Checker
 
 ```text
-输出:
+Output:
 - VERIFIED_CLAIMS
 - WEAKLY_SUPPORTED_CLAIMS
 - UNSUPPORTED_OR_CONTRADICTED_CLAIMS
@@ -57,32 +58,50 @@
 ### Judge
 
 ```text
-评分权重:
+Rubric weights:
 - Accuracy 40%
 - Completeness 25%
 - Traceability 20%
 - Robustness 15%
 
-输出:
-- SCORE_A / SCORE_B
+Output:
+- SCORE_A / SCORE_B / SCORE_DELTA
 - WINNER or MERGED_FINAL
+- STATUS (DECIDED|MERGED|INSUFFICIENT_EVIDENCE|GATE_FAILED)
 - FINAL_ANSWER
 - CONFIDENCE
 - RESIDUAL_RISKS
+- UNSUPPORTED_CLAIMS + DISPOSITION
 - NEXT_VERIFICATION_STEPS
 ```
 
 ## 3) Output Skeleton
 
 ```text
+[STATUS]
+DECIDED | MERGED | INSUFFICIENT_EVIDENCE | GATE_FAILED
+
 [FINAL_ANSWER]
 ...
+
+[SCORES]
+SCORE_A: ...
+SCORE_B: ...
+SCORE_DELTA: ...
 
 [CONFIDENCE_0_TO_100]
 ...
 
 [KEY_EVIDENCE_MAP]
-- claim -> source
+- claim_id -> source_id
+...
+
+[UNSUPPORTED_CLAIMS]
+- claim_id
+...
+
+[DISPOSITION]
+- claim_id: dropped | pending_evidence | accepted_with_uncertainty
 ...
 
 [OPEN_RISKS]
